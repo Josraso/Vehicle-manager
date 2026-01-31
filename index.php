@@ -32,6 +32,7 @@ require_once __DIR__ . '/models/OdometerLog.php';
 require_once __DIR__ . '/models/Setting.php';
 require_once __DIR__ . '/models/EmailTemplate.php';
 require_once __DIR__ . '/models/ActivityLog.php';
+require_once __DIR__ . '/models/EmailQueue.php';
 
 // Cargar Core adicional
 require_once __DIR__ . '/core/Mailer.php';
@@ -46,6 +47,7 @@ require_once __DIR__ . '/controllers/ProfileController.php';
 require_once __DIR__ . '/controllers/StatsController.php';
 require_once __DIR__ . '/controllers/ExportController.php';
 require_once __DIR__ . '/controllers/AdminController.php';
+require_once __DIR__ . '/controllers/CronController.php';
 
 // Obtener acción de la URL
 $action = $_GET['action'] ?? 'login';
@@ -108,6 +110,11 @@ $routes = [
     'admin_template_edit' => ['AdminController', 'templateEdit'],
     'admin_logs' => ['AdminController', 'logs'],
     'admin_logs_clear' => ['AdminController', 'logsClear'],
+    'admin_logs_stats' => ['AdminController', 'logStats'],
+    'admin_logs_export' => ['AdminController', 'logExport'],
+
+    // Cron
+    'cron_queue' => ['CronController', 'processQueue'],
 ];
 
 // Ejecutar ruta

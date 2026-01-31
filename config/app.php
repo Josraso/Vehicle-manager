@@ -25,5 +25,12 @@ return [
     'mail' => [
         'from' => 'noreply@vehiclemanager.com',
         'from_name' => 'Vehicle Manager'
+    ],
+
+    // Cron - Token para el endpoint de procesamiento de cola de emails
+    // Uso: curl "http://tudominio.com/index.php?action=cron_queue&token=ESTE_TOKEN"
+    // Crontab: * * * * * curl -s "http://tudominio.com/index.php?action=cron_queue&token=4d3de086c2ffbdebee1341cd9504f31c280ac9c26f501044911742444698fcbc" > /dev/null 2>&1
+    'cron' => [
+        'token' => '4d3de086c2ffbdebee1341cd9504f31c280ac9c26f501044911742444698fcbc'
     ]
 ];

@@ -1,8 +1,13 @@
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h1><i class="bi bi-clock-history me-2"></i>Logs de Actividad</h1>
-    <a href="index.php?action=admin_dashboard" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left me-1"></i>Volver al Panel
-    </a>
+    <div class="d-flex gap-2">
+        <a href="index.php?action=admin_logs_stats" class="btn btn-outline-info">
+            <i class="bi bi-bar-chart me-1"></i>Estadísticas
+        </a>
+        <a href="index.php?action=admin_dashboard" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Volver al Panel
+        </a>
+    </div>
 </div>
 
 <!-- Filtros -->
@@ -11,10 +16,23 @@
         <form method="GET" class="row g-3">
             <input type="hidden" name="action" value="admin_logs">
 
-            <div class="col-md-3">
+            <div class="col-md-2">
+                <label class="form-label">Usuario</label>
+                <select name="user_id" class="form-select">
+                    <option value="">Todos</option>
+                    <?php foreach ($users as $user): ?>
+                        <option value="<?= $user['id'] ?>"
+                                <?= (string)($filters['user_id'] ?? '') === (string)$user['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($user['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <div class="col-md-2">
                 <label class="form-label">Acción</label>
                 <select name="action_filter" class="form-select">
-                    <option value="">Todas las acciones</option>
+                    <option value="">Todas</option>
                     <?php foreach ($actions as $action): ?>
                         <option value="<?= htmlspecialchars($action) ?>"
                                 <?= ($filters['action'] ?? '') === $action ? 'selected' : '' ?>>
@@ -24,19 +42,19 @@
                 </select>
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Desde</label>
                 <input type="date" name="date_from" class="form-control"
                        value="<?= htmlspecialchars($filters['date_from']) ?>">
             </div>
 
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Hasta</label>
                 <input type="date" name="date_to" class="form-control"
                        value="<?= htmlspecialchars($filters['date_to']) ?>">
             </div>
 
-            <div class="col-md-3 d-flex align-items-end gap-2">
+            <div class="col-md-4 d-flex align-items-end gap-2">
                 <button type="submit" class="btn btn-primary flex-grow-1">
                     <i class="bi bi-search me-1"></i>Filtrar
                 </button>
@@ -53,10 +71,23 @@
     <div class="card-header d-flex justify-content-between align-items-center">
         <span class="badge bg-primary"><?= $logs['total'] ?> registros</span>
 
-        <!-- Botón limpiar logs -->
-        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
-            <i class="bi bi-trash me-1"></i>Limpiar Logs Antiguos
-        </button>
+        <div class="d-flex gap-2">
+            <?php
+            $exportParams = http_build_query(array_filter([
+                'action' => 'admin_logs_export',
+                'user_id' => $filters['user_id'],
+                'action_filter' => $filters['action'],
+                'date_from' => $filters['date_from'],
+                'date_to' => $filters['date_to']
+            ]));
+            ?>
+            <a href="index.php?<?= $exportParams ?>" class="btn btn-sm btn-outline-success">
+                <i class="bi bi-download me-1"></i>Export CSV
+            </a>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#clearLogsModal">
+                <i class="bi bi-trash me-1"></i>Limpiar Logs
+            </button>
+        </div>
     </div>
     <div class="card-body p-0">
         <?php if (empty($logs['data'])): ?>
@@ -125,6 +156,7 @@
                             <?php
                             $queryParams = http_build_query(array_filter([
                                 'action' => 'admin_logs',
+                                'user_id' => $filters['user_id'],
                                 'action_filter' => $filters['action'],
                                 'date_from' => $filters['date_from'],
                                 'date_to' => $filters['date_to']
@@ -149,35 +181,37 @@
 <div class="modal fade" id="clearLogsModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header bg-warning">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Limpiar Logs Antiguos</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Limpiar Logs</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <form method="POST" action="index.php?action=admin_logs_clear">
-                <input type="hidden" name="csrf_token" value="<?= $_SESSION['csrf_token'] ?? '' ?>">
+                <input type="hidden" name="csrf_token" value="<?= $csrf_token ?? $_SESSION['csrf_token'] ?? '' ?>">
                 <div class="modal-body">
-                    <p>Esta acción eliminará los registros de actividad más antiguos que el período seleccionado.</p>
+                    <p>Selecciona qué registros quieres eliminar:</p>
 
                     <div class="mb-3">
-                        <label class="form-label">Eliminar registros de más de:</label>
+                        <label class="form-label">Período a eliminar</label>
                         <select name="days" class="form-select">
-                            <option value="30">30 días</option>
-                            <option value="60">60 días</option>
-                            <option value="90" selected>90 días</option>
-                            <option value="180">6 meses</option>
-                            <option value="365">1 año</option>
+                            <option value="0">Todos los registros</option>
+                            <option value="7">Más de 7 días</option>
+                            <option value="30">Más de 30 días</option>
+                            <option value="60">Más de 60 días</option>
+                            <option value="90" selected>Más de 90 días</option>
+                            <option value="180">Más de 6 meses</option>
+                            <option value="365">Más de 1 año</option>
                         </select>
                     </div>
 
-                    <div class="alert alert-warning mb-0">
+                    <div class="alert alert-danger mb-0">
                         <i class="bi bi-exclamation-circle me-1"></i>
-                        Esta acción no se puede deshacer.
+                        <strong>Esta acción no se puede deshacer.</strong> Los registros eliminados se perderán permanentemente.
                     </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-trash me-1"></i>Limpiar Logs
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Eliminar Logs
                     </button>
                 </div>
             </form>

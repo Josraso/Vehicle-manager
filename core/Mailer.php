@@ -75,8 +75,6 @@ class Mailer
         $prefix = '';
         if ($encryption === 'ssl') {
             $prefix = 'ssl://';
-        } elseif ($encryption === 'tls') {
-            $prefix = 'tls://';
         }
 
         // Intentar conexión
@@ -129,8 +127,13 @@ class Mailer
 
             // STARTTLS para TLS
             if ($encryption === 'tls') {
-                $sendCommand('STARTTLS', '220');
-                stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                $response = $sendCommand('STARTTLS');
+                if (substr($response, 0, 3) !== '220') {
+                    throw new Exception('El servidor no soporta STARTTLS');
+                }
+                if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+                    throw new Exception('Error al establecer conexión TLS encriptada');
+                }
                 $sendCommand('EHLO ' . gethostname());
             }
 
@@ -406,9 +409,10 @@ class Mailer
             ]
         ];
 
+        $prefix = ($encryption === 'ssl') ? 'ssl://' : '';
         $errno = 0;
         $errstr = '';
-        $socket = @fsockopen($host, $port, $errno, $errstr, 10);
+        $socket = @fsockopen($prefix . $host, $port, $errno, $errstr, 10);
 
         if (!$socket) {
             $result['message'] = "No se pudo conectar: {$errstr}";
@@ -422,8 +426,13 @@ class Mailer
             $result['success'] = true;
             $result['message'] = 'Conexión SMTP exitosa';
             $result['details']['server_response'] = trim($response);
+
+            // Advertencia si el remitente no coincide con el usuario SMTP
+            if (!empty($this->config['username']) && $this->config['from_address'] !== $this->config['username']) {
+                $result['details']['warning'] = 'El remitente (' . $this->config['from_address'] . ') no coincide con el usuario SMTP (' . $this->config['username'] . '). Muchos proveedores como Gmail u Outlook requieren que sean iguales para entregar el mensaje.';
+            }
         } else {
-            $result['message'] = 'Respuesta inesperada del servidor';
+            $result['message'] = 'Respuesta inesperada del servidor: ' . trim($response);
         }
 
         return $result;
@@ -497,5 +506,44 @@ class Mailer
     public function getConfig(): array
     {
         return $this->config;
+    }
+
+    /**
+     * Poner email en cola de envío asíncrono
+     */
+    public function sendToQueue(string $toEmail, string $toName, string $subject, string $body): int
+    {
+        if (!filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->errors[] = 'Email de destino no válido';
+            return 0;
+        }
+
+        $queue = new EmailQueue();
+        return $queue->enqueue($toEmail, $toName, $subject, $body);
+    }
+
+    /**
+     * Poner email con plantilla en cola de envío asíncrono
+     */
+    public function sendTemplateToQueue(string $templateSlug, string $toEmail, string $toName, array $variables = []): int
+    {
+        $templateModel = new EmailTemplate();
+        $template = $templateModel->findBySlug($templateSlug);
+
+        if (!$template || !$template['is_active']) {
+            $this->errors[] = 'Plantilla no encontrada o inactiva';
+            return 0;
+        }
+
+        $settingModel = new Setting();
+        $variables['site_name'] = $settingModel->get('site_name', 'Vehicle Manager');
+        $variables['site_url'] = $this->getSiteUrl();
+        $variables['date'] = date('d/m/Y H:i');
+
+        $subject = $this->replaceVariables($template['subject'], $variables);
+        $body = $this->replaceVariables($template['body'], $variables);
+        $body = $this->wrapInHtmlTemplate($body);
+
+        return $this->sendToQueue($toEmail, $toName, $subject, $body);
     }
 }

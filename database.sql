@@ -347,7 +347,7 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- Email: admin@admin.com | Password: admin123
 -- =====================================================
 INSERT INTO `users` (`name`, `email`, `password`, `role`) VALUES
-('Administrador', 'admin@admin.com', '$2y$10$YourHashedPasswordHere123456789012345678901234567890', 'admin');
+('Administrador', 'admin@admin.com', '$2y$12$9CgfiBWIddUQeMWyqO9Pu.wpDzD0zYkTN0GJV8DjdhEviAewgwdaW', 'admin');
 
 -- =====================================================
 -- USUARIO DE PRUEBA

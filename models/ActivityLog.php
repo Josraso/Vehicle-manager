@@ -147,9 +147,15 @@ class ActivityLog extends Model
      */
     public function cleanOldLogs(int $days = 90): int
     {
-        $sql = "DELETE FROM {$this->table} WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)";
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute([$days]);
+        if ($days <= 0) {
+            $sql = "DELETE FROM {$this->table}";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute();
+        } else {
+            $sql = "DELETE FROM {$this->table} WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)";
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute([$days]);
+        }
         return $stmt->rowCount();
     }
 

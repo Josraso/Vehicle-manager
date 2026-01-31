@@ -400,7 +400,12 @@ class AdminController extends Controller
 
         if ($result) {
             $this->activityModel->log('email_test', "Email de prueba enviado a: {$testEmail}");
-            $this->flash('success', "Email de prueba enviado correctamente a {$testEmail}");
+
+            if (!empty($connectionTest['details']['warning'])) {
+                $this->flash('error', 'Email enviado, pero revisa: ' . $connectionTest['details']['warning']);
+            } else {
+                $this->flash('success', "Email de prueba enviado correctamente a {$testEmail}");
+            }
         } else {
             $this->flash('error', 'Error al enviar: ' . $mailer->getLastError());
         }
@@ -488,7 +493,7 @@ class AdminController extends Controller
         $page = (int) $this->get('page', 1);
         $filters = [
             'user_id' => $this->get('user_id', ''),
-            'action' => $this->get('action', ''),
+            'action' => $this->get('action_filter', ''),
             'date_from' => $this->get('date_from', ''),
             'date_to' => $this->get('date_to', '')
         ];
@@ -496,15 +501,21 @@ class AdminController extends Controller
         $logs = $this->activityModel->getFiltered($filters, $page, 30);
         $actions = $this->activityModel->getUniqueActions();
 
+        $db = Database::getInstance();
+        $users = $db->query("SELECT id, name FROM users ORDER BY name")->fetchAll();
+
         $this->render('admin/logs/index', [
             'logs' => $logs,
             'filters' => $filters,
-            'actions' => $actions
+            'actions' => $actions,
+            'users' => $users,
+            'flash' => $this->getFlash(),
+            'csrf_token' => $this->generateCsrf()
         ]);
     }
 
     /**
-     * Limpiar logs antiguos
+     * Limpiar logs
      */
     public function logsClear(): void
     {
@@ -518,9 +529,70 @@ class AdminController extends Controller
         $days = (int) $this->post('days', 90);
         $deleted = $this->activityModel->cleanOldLogs($days);
 
-        $this->activityModel->log('logs_clear', "Logs antiguos eliminados: {$deleted} registros");
+        $message = $days <= 0
+            ? "Se eliminaron todos los {$deleted} registros de logs"
+            : "Se eliminaron {$deleted} registros de más de {$days} días";
 
-        $this->flash('success', "Se eliminaron {$deleted} registros de más de {$days} días");
+        $this->activityModel->log('logs_clear', $message);
+
+        $this->flash('success', $message);
         $this->redirect('index.php?action=admin_logs');
+    }
+
+    /**
+     * Estadísticas de logs
+     */
+    public function logStats(): void
+    {
+        Auth::requireAdmin();
+
+        $stats = $this->activityModel->getStats();
+
+        $this->render('admin/logs/stats', [
+            'stats' => $stats
+        ]);
+    }
+
+    /**
+     * Exportar logs a CSV
+     */
+    public function logExport(): void
+    {
+        Auth::requireAdmin();
+
+        $filters = [
+            'user_id' => $this->get('user_id', ''),
+            'action' => $this->get('action_filter', ''),
+            'date_from' => $this->get('date_from', ''),
+            'date_to' => $this->get('date_to', '')
+        ];
+
+        $logs = $this->activityModel->getFiltered($filters, 1, 50000);
+
+        $filename = 'logs_actividad_' . date('Y-m-d') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        fputcsv($output, ['Fecha', 'Usuario', 'Email', 'Acción', 'Descripción', 'Entidad', 'ID', 'IP', 'User Agent'], ';');
+
+        foreach ($logs['data'] as $log) {
+            fputcsv($output, [
+                date('d/m/Y H:i:s', strtotime($log['created_at'])),
+                $log['user_name'] ?? 'Sistema',
+                $log['user_email'] ?? '',
+                $log['action'],
+                $log['description'],
+                $log['entity_type'] ?? '',
+                $log['entity_id'] ?? '',
+                $log['ip_address'] ?? '',
+                $log['user_agent'] ?? ''
+            ], ';');
+        }
+
+        fclose($output);
+        exit;
     }
 }

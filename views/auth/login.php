@@ -56,6 +56,11 @@
                                 </div>
                             </div>
 
+                            <div class="form-check mb-3">
+                                <input class="form-check-input" type="checkbox" name="remember_me" id="remember_me">
+                                <label class="form-check-label small" for="remember_me">Recuerdo mi usuario</label>
+                            </div>
+
                             <div class="d-grid gap-2">
                                 <button type="submit" class="btn btn-primary">
                                     <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
@@ -78,14 +83,6 @@
                     <a href="index.php?action=register" class="text-decoration-none ms-1">Regístrate</a>
                 </div>
 
-                <!-- Demo credentials -->
-                <div class="card mt-4 bg-body-tertiary">
-                    <div class="card-body py-2 px-3">
-                        <small class="text-muted">
-                            <strong>Demo:</strong> demo@test.com / 123456
-                        </small>
-                    </div>
-                </div>
             </div>
         </div>
     </div>

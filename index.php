@@ -16,6 +16,24 @@ date_default_timezone_set('Europe/Madrid');
 // Iniciar sesión
 session_start();
 
+// Verificar expiración de sesión
+if (isset($_SESSION['session_expires']) && $_SESSION['session_expires'] < time()) {
+    session_destroy();
+    session_start();
+}
+
+// Refrescar cookie si es sesión con "recuerdo mi usuario"
+if (isset($_SESSION['remember_me']) && $_SESSION['remember_me']) {
+    $_SESSION['session_expires'] = time() + (30 * 24 * 60 * 60);
+    setcookie(session_name(), session_id(), [
+        'expires' => time() + (30 * 24 * 60 * 60),
+        'path' => '/',
+        'secure' => isset($_SERVER['HTTPS']),
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+}
+
 // Cargar clases Core
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Model.php';

@@ -27,14 +27,6 @@
                                 Si el email existe, recibirás instrucciones para restablecer tu contraseña.
                             </div>
 
-                            <?php if (isset($reset_link)): ?>
-                                <!-- Solo para desarrollo - en producción se enviaría por email -->
-                                <div class="alert alert-info small">
-                                    <strong>Modo desarrollo:</strong><br>
-                                    <a href="<?= $reset_link ?>" class="text-break"><?= $reset_link ?></a>
-                                </div>
-                            <?php endif; ?>
-
                             <div class="text-center">
                                 <a href="index.php?action=login" class="btn btn-outline-primary">
                                     Volver al Login

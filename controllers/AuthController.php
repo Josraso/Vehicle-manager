@@ -171,6 +171,15 @@ class AuthController extends Controller
         $userId = $this->userModel->createUser($data['name'], $data['email'], $data['password']);
 
         if ($userId) {
+            $config = require __DIR__ . '/../config/app.php';
+            $mailer = new Mailer();
+            $mailer->sendTemplate('welcome', $data['email'], $data['name'], [
+                'user_name' => $data['name'],
+                'user_email' => $data['email'],
+                'site_name' => $config['app_name'] ?? 'Vehicle Manager',
+                'site_url' => $config['url'] ?? ''
+            ]);
+
             $this->flash('success', 'Cuenta creada correctamente. Inicia sesión.');
             $this->redirect('index.php?action=login');
         } else {
@@ -222,7 +231,7 @@ class AuthController extends Controller
             $resetLink = $config['url'] . "/index.php?action=reset_password&token={$token}";
 
             $mailer = new Mailer();
-            $mailer->sendTemplateToQueue('password_reset', $user['email'], $user['name'], [
+            $mailer->sendTemplate('password_reset', $user['email'], $user['name'], [
                 'user_name' => $user['name'],
                 'reset_link' => $resetLink
             ]);

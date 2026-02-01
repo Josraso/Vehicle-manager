@@ -58,6 +58,10 @@ class CronController extends Controller
         // Limpiar emails antiguos (enviados/fallidos de hace más de 30 días)
         $queue->cleanOld(30);
 
+        // Registrar última ejecución del cron
+        $settingModel = new Setting();
+        $settingModel->set('cron_last_run', date('Y-m-d H:i:s'));
+
         header('Content-Type: application/json');
         echo json_encode([
             'status' => 'ok',

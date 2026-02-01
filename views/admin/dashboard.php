@@ -213,3 +213,91 @@
         </div>
     </div>
 </div>
+
+<!-- Alertas de Mantenimiento Global -->
+<div class="row g-4 mt-2">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">
+                    <i class="bi bi-tools me-2 <?= !empty($maintenanceAlerts) ? 'text-warning' : 'text-success' ?>"></i>
+                    Alertas de Mantenimiento
+                </h5>
+                <?php if (!empty($maintenanceAlerts)): ?>
+                    <span class="badge bg-warning text-dark"><?= count($maintenanceAlerts) ?> pendiente<?= count($maintenanceAlerts) !== 1 ? 's' : '' ?></span>
+                <?php endif; ?>
+            </div>
+            <div class="card-body p-0">
+                <?php if (empty($maintenanceAlerts)): ?>
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-check-circle fs-1 text-success"></i>
+                        <p class="mt-2">Todos los mantenimientos están al día</p>
+                    </div>
+                <?php else: ?>
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Vehículo</th>
+                                    <th>Mantenimiento</th>
+                                    <th>Fecha límite</th>
+                                    <th>Km límite</th>
+                                    <th>Km actual</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($maintenanceAlerts as $alert): ?>
+                                <tr>
+                                    <td>
+                                        <strong><?= htmlspecialchars($alert['user_name']) ?></strong>
+                                    </td>
+                                    <td>
+                                        <?= htmlspecialchars($alert['brand'] . ' ' . $alert['model']) ?><br>
+                                        <small class="text-muted"><?= htmlspecialchars($alert['license_plate']) ?></small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary"><?= htmlspecialchars($alert['maintenance_type'] ?? 'Otro') ?></span>
+                                    </td>
+                                    <td>
+                                        <?php if ($alert['next_date']): ?>
+                                            <?php
+                                            $daysLeft = (strtotime($alert['next_date']) - strtotime('today')) / 86400;
+                                            $dateClass = $daysLeft < 0 ? 'text-danger fw-bold' : ($daysLeft <= 3 ? 'text-warning fw-bold' : 'text-muted');
+                                            ?>
+                                            <span class="<?= $dateClass ?>">
+                                                <?= date('d/m/Y', strtotime($alert['next_date'])) ?>
+                                                <?php if ($daysLeft < 0): ?>
+                                                    <small>(hace <?= abs((int)$daysLeft) ?> días)</small>
+                                                <?php elseif ($daysLeft === 0): ?>
+                                                    <small>(hoy)</small>
+                                                <?php else: ?>
+                                                    <small>(<?= (int)$daysLeft ?> días)</small>
+                                                <?php endif; ?>
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if ($alert['next_km']): ?>
+                                            <span class="<?= $alert['next_km'] <= $alert['current_km'] ? 'text-danger fw-bold' : 'text-muted' ?>">
+                                                <?= number_format($alert['next_km']) ?> km
+                                            </span>
+                                        <?php else: ?>
+                                            <span class="text-muted">—</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <strong><?= number_format($alert['current_km']) ?> km</strong>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>

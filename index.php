@@ -51,6 +51,7 @@ require_once __DIR__ . '/models/Setting.php';
 require_once __DIR__ . '/models/EmailTemplate.php';
 require_once __DIR__ . '/models/ActivityLog.php';
 require_once __DIR__ . '/models/EmailQueue.php';
+require_once __DIR__ . '/models/Ticket.php';
 
 // Cargar Core adicional
 require_once __DIR__ . '/core/Mailer.php';
@@ -65,6 +66,7 @@ require_once __DIR__ . '/controllers/ProfileController.php';
 require_once __DIR__ . '/controllers/StatsController.php';
 require_once __DIR__ . '/controllers/ExportController.php';
 require_once __DIR__ . '/controllers/AdminController.php';
+require_once __DIR__ . '/controllers/TicketController.php';
 require_once __DIR__ . '/controllers/CronController.php';
 
 // Obtener acción de la URL
@@ -130,6 +132,17 @@ $routes = [
     'admin_logs_clear' => ['AdminController', 'logsClear'],
     'admin_logs_stats' => ['AdminController', 'logStats'],
     'admin_logs_export' => ['AdminController', 'logExport'],
+    'admin_impersonate' => ['AdminController', 'impersonate'],
+    'admin_impersonate_end' => ['AdminController', 'impersonateEnd'],
+    'admin_tickets' => ['AdminController', 'tickets'],
+    'admin_ticket_detail' => ['AdminController', 'ticketDetail'],
+    'admin_ticket_reply' => ['AdminController', 'ticketReply'],
+    'admin_ticket_close' => ['AdminController', 'ticketClose'],
+    'admin_health' => ['AdminController', 'health'],
+
+    // Tickets (usuario)
+    'tickets' => ['TicketController', 'index'],
+    'ticket_create' => ['TicketController', 'create'],
 
     // Cron
     'cron_queue' => ['CronController', 'processQueue'],

@@ -120,6 +120,17 @@
                                         </a>
 
                                         <?php if ($user['id'] !== Auth::id()): ?>
+                                            <?php if ($user['role'] !== 'admin'): ?>
+                                            <form method="POST" action="index.php?action=admin_impersonate" class="d-inline">
+                                                <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                                                <input type="hidden" name="id" value="<?= $user['id'] ?>">
+                                                <button type="submit" class="btn btn-outline-secondary"
+                                                        title="Conectar como este usuario">
+                                                    <i class="bi bi-person-lines-fill"></i>
+                                                </button>
+                                            </form>
+                                            <?php endif; ?>
+
                                             <form method="POST" action="index.php?action=admin_user_toggle" class="d-inline">
                                                 <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
                                                 <input type="hidden" name="id" value="<?= $user['id'] ?>">

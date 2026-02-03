@@ -50,7 +50,7 @@
                             <select class="form-select" id="fuel_type_id" name="fuel_type_id">
                                 <?php foreach ($fuelTypes as $type): ?>
                                     <option value="<?= $type['id'] ?>"
-                                            <?= ($data['fuel_type_id'] ?? 1) == $type['id'] ? 'selected' : '' ?>>
+                                            <?= ($data['fuel_type_id'] ?? $defaultFuelType) == $type['id'] ? 'selected' : '' ?>>
                                         <?= htmlspecialchars($type['name']) ?>
                                     </option>
                                 <?php endforeach; ?>

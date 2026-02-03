@@ -38,7 +38,59 @@ class VehicleController extends Controller
             );
         }
 
+        // Estadísticas globales para el resumen del dashboard
+        $globalStats = $this->vehicleModel->getGlobalStats(Auth::id());
+        $totalReminders = 0;
+        foreach ($vehicles as $v) {
+            $totalReminders += count($v['reminders']);
+        }
+
         $this->render('vehicles/index', [
+            'vehicles' => $vehicles,
+            'globalStats' => $globalStats,
+            'totalReminders' => $totalReminders,
+            'flash' => $this->getFlash()
+        ]);
+    }
+
+    /**
+     * Comparativa entre vehículos del usuario
+     */
+    public function compare(): void
+    {
+        Auth::require();
+
+        $vehicles = $this->vehicleModel->getByUser(Auth::id());
+
+        if (count($vehicles) < 2) {
+            $this->flash('info', 'Necesitas al menos 2 vehículos para comparar');
+            $this->redirect('index.php?action=dashboard');
+            return;
+        }
+
+        $db = Database::getInstance();
+
+        foreach ($vehicles as &$vehicle) {
+            $vehicle['stats'] = $this->vehicleModel->getStats($vehicle['id']);
+            $vehicle['consumption'] = $this->fuelModel->calculateConsumption($vehicle['id']);
+
+            // km recorridos desde primer registro
+            $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+                SELECT km FROM odometer_logs WHERE vehicle_id = ?
+                UNION
+                SELECT km FROM fuel_logs WHERE vehicle_id = ?
+            ) AS all_km");
+            $stmt->execute([$vehicle['current_km'], $vehicle['id'], $vehicle['id']]);
+            $vehicle['km_driven'] = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+            $vehicle['cost_per_km'] = $vehicle['km_driven'] > 0
+                ? round($vehicle['stats']['total_cost'] / $vehicle['km_driven'], 3) : 0;
+
+            $vehicle['yearly_fuel'] = $this->fuelModel->getYearlyTotal($vehicle['id']);
+            $vehicle['yearly_maint'] = $this->maintenanceModel->getYearlyTotal($vehicle['id']);
+        }
+        unset($vehicle);
+
+        $this->render('vehicles/compare', [
             'vehicles' => $vehicles,
             'flash' => $this->getFlash()
         ]);

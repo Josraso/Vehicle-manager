@@ -83,6 +83,7 @@ $routes = [
 
     // Dashboard y Vehículos
     'dashboard' => ['VehicleController', 'index'],
+    'compare' => ['VehicleController', 'compare'],
     'vehicle_show' => ['VehicleController', 'show'],
     'vehicle_create' => ['VehicleController', 'create'],
     'vehicle_edit' => ['VehicleController', 'edit'],

@@ -150,12 +150,32 @@
     </div>
 </div>
 
-<div class="card mt-4">
-    <div class="card-header">
-        <h6 class="mb-0"><i class="bi bi-speedometer me-2"></i>Kilómetros Recorridos <?= $selectedYear ?></h6>
+<div class="row g-4 mt-0">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-speedometer me-2"></i>Kilómetros Recorridos <?= $selectedYear ?></h6>
+            </div>
+            <div class="card-body">
+                <canvas id="kmChart" height="120"></canvas>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <canvas id="kmChart" height="80"></canvas>
+    <div class="col-lg-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-droplet me-2"></i>Tendencia de Consumo</h6>
+            </div>
+            <div class="card-body">
+                <?php if (count($consumptionTrend['labels']) >= 2): ?>
+                    <canvas id="consumptionChart"></canvas>
+                <?php else: ?>
+                    <div class="text-center text-muted py-4 small">
+                        Se necesitan al menos 2 llenados llenos para mostrar la tendencia.
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -245,6 +265,39 @@ new Chart(document.getElementById('kmChart'), {
         }
     }
 });
+
+// Gráfico tendencia de consumo
+<?php if (count($consumptionTrend['labels']) >= 2): ?>
+const consumptionData = <?= json_encode($consumptionTrend) ?>;
+new Chart(document.getElementById('consumptionChart'), {
+    type: 'line',
+    data: {
+        labels: consumptionData.labels,
+        datasets: [{
+            label: 'L/100km',
+            data: consumptionData.values,
+            fill: false,
+            backgroundColor: 'rgba(13, 110, 253, 0.1)',
+            borderColor: 'rgb(13, 110, 253)',
+            borderWidth: 2,
+            tension: 0.25,
+            pointBackgroundColor: 'rgb(13, 110, 253)',
+            pointRadius: 3
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            x: { ticks: { maxRotation: 45, font: { size: 11 } } },
+            y: {
+                beginAtZero: false,
+                ticks: { callback: v => v.toFixed(1) + ' L' }
+            }
+        },
+        plugins: { legend: { display: false } }
+    }
+});
+<?php endif; ?>
 
 // Cambiar año
 document.getElementById('yearSelector').addEventListener('change', function() {

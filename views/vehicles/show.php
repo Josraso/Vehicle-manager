@@ -214,8 +214,23 @@
                         </a>
                     </div>
                 <?php else: ?>
+                    <!-- Filtro por fechas -->
+                    <div class="d-flex gap-2 align-items-end mb-3 flex-wrap" id="fuelFilterBar">
+                        <div>
+                            <label class="form-label small mb-1">Desde</label>
+                            <input type="date" class="form-control form-control-sm" id="fuelDateFrom" onchange="filterTable('fuel')">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1">Hasta</label>
+                            <input type="date" class="form-control form-control-sm" id="fuelDateTo" onchange="filterTable('fuel')">
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilter('fuel')">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </button>
+                        <span class="text-muted small ms-auto" id="fuelCount"><?= count($fuelLogs) ?> registros</span>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle" id="fuelTable">
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
@@ -230,7 +245,7 @@
                             </thead>
                             <tbody>
                                 <?php foreach ($fuelLogs as $log): ?>
-                                    <tr>
+                                    <tr data-date="<?= htmlspecialchars($log['date']) ?>">
                                         <td><?= date('d/m/Y', strtotime($log['date'])) ?></td>
                                         <td>
                                             <span class="badge bg-body-secondary text-body">
@@ -279,8 +294,23 @@
                         </a>
                     </div>
                 <?php else: ?>
+                    <!-- Filtro por fechas -->
+                    <div class="d-flex gap-2 align-items-end mb-3 flex-wrap" id="maintFilterBar">
+                        <div>
+                            <label class="form-label small mb-1">Desde</label>
+                            <input type="date" class="form-control form-control-sm" id="maintDateFrom" onchange="filterTable('maint')">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1">Hasta</label>
+                            <input type="date" class="form-control form-control-sm" id="maintDateTo" onchange="filterTable('maint')">
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilter('maint')">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </button>
+                        <span class="text-muted small ms-auto" id="maintCount"><?= count($maintenanceLogs) ?> registros</span>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle" id="maintTable">
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
@@ -294,7 +324,7 @@
                             </thead>
                             <tbody>
                                 <?php foreach ($maintenanceLogs as $log): ?>
-                                    <tr>
+                                    <tr data-date="<?= htmlspecialchars($log['date']) ?>">
                                         <td><?= date('d/m/Y', strtotime($log['date'])) ?></td>
                                         <td><?= htmlspecialchars($log['type_name'] ?? 'N/A') ?></td>
                                         <td class="text-end"><?= number_format($log['km']) ?></td>
@@ -456,5 +486,40 @@ function confirmDelete(type, id, name) {
     document.getElementById('deleteItemId').value = id;
     document.getElementById('deleteItemForm').action = 'index.php?action=' + type + '_delete';
     new bootstrap.Modal(document.getElementById('deleteItemModal')).show();
+}
+
+// Filtro por rango de fechas
+const filterConfig = {
+    fuel: { tableId: 'fuelTable', fromId: 'fuelDateFrom', toId: 'fuelDateTo', countId: 'fuelCount' },
+    maint: { tableId: 'maintTable', fromId: 'maintDateFrom', toId: 'maintDateTo', countId: 'maintCount' }
+};
+
+function filterTable(prefix) {
+    const cfg = filterConfig[prefix];
+    const table = document.getElementById(cfg.tableId);
+    if (!table) return;
+
+    const from = document.getElementById(cfg.fromId).value;
+    const to   = document.getElementById(cfg.toId).value;
+    const rows = table.querySelectorAll('tbody tr');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const date = row.dataset.date; // YYYY-MM-DD
+        let show = true;
+        if (from && date < from) show = false;
+        if (to && date > to)     show = false;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    document.getElementById(cfg.countId).textContent = visible + ' registros';
+}
+
+function resetFilter(prefix) {
+    const cfg = filterConfig[prefix];
+    document.getElementById(cfg.fromId).value = '';
+    document.getElementById(cfg.toId).value = '';
+    filterTable(prefix);
 }
 </script>

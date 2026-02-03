@@ -289,7 +289,8 @@ class AdminController extends Controller
             'admin_email' => $this->settingModel->get('admin_email', ''),
             'allow_registration' => $this->settingModel->get('allow_registration', true),
             'reminder_days_before' => $this->settingModel->get('reminder_days_before', 7),
-            'reminder_enabled' => $this->settingModel->get('reminder_enabled', true)
+            'reminder_enabled' => $this->settingModel->get('reminder_enabled', true),
+            'support_enabled' => $this->settingModel->get('support_enabled', true)
         ];
 
         $this->render('admin/settings/general', [
@@ -316,6 +317,7 @@ class AdminController extends Controller
         $this->settingModel->set('allow_registration', $this->post('allow_registration') ? '1' : '0', 'boolean');
         $this->settingModel->set('reminder_days_before', (int) $this->post('reminder_days_before', 7), 'integer');
         $this->settingModel->set('reminder_enabled', $this->post('reminder_enabled') ? '1' : '0', 'boolean');
+        $this->settingModel->set('support_enabled', $this->post('support_enabled') ? '1' : '0', 'boolean');
 
         $this->activityModel->log('settings_update', 'Configuración general actualizada');
 

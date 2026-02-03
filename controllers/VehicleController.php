@@ -164,6 +164,18 @@ class VehicleController extends Controller
         $vehicleId = $this->vehicleModel->createVehicle(Auth::id(), $data);
 
         if ($vehicleId) {
+            // Registrar km inicial en odómetro si se proporcionó
+            if ($data['current_km'] > 0) {
+                $odometerLog = new OdometerLog();
+                $odometerLog->createLog([
+                    'vehicle_id' => $vehicleId,
+                    'km' => $data['current_km'],
+                    'date' => date('Y-m-d'),
+                    'source' => 'manual',
+                    'notes' => 'Kilometraje inicial al crear el vehículo'
+                ]);
+            }
+
             $this->flash('success', 'Vehículo añadido correctamente');
             $this->redirect('index.php?action=vehicle_show&id=' . $vehicleId);
         } else {

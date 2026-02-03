@@ -19,6 +19,11 @@ class TicketController extends Controller
     {
         Auth::require();
 
+        if (!(new Setting())->get('support_enabled', true)) {
+            $this->redirect('index.php?action=dashboard');
+            return;
+        }
+
         $tickets = $this->ticketModel->getByUser(Auth::id());
 
         $this->render('tickets/index', [
@@ -33,6 +38,11 @@ class TicketController extends Controller
     public function create(): void
     {
         Auth::require();
+
+        if (!(new Setting())->get('support_enabled', true)) {
+            $this->redirect('index.php?action=dashboard');
+            return;
+        }
 
         if ($this->isPost()) {
             $this->processCreate();

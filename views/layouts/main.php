@@ -105,11 +105,13 @@
                         </ul>
                     </li>
                     <?php endif; ?>
+                    <?php if ((new Setting())->get('support_enabled', true)): ?>
                     <li class="nav-item">
                         <a class="nav-link" href="index.php?action=tickets">
                             <i class="bi bi-headset me-1"></i> Soporte
                         </a>
                     </li>
+                    <?php endif; ?>
                 </ul>
 
                 <ul class="navbar-nav">

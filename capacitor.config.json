@@ -1,0 +1,8 @@
+{
+  "appId": "com.vehiclemanager.app",
+  "appName": "Vehicle Manager",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": true
+  }
+}

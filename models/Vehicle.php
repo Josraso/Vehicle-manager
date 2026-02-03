@@ -73,17 +73,21 @@ class Vehicle extends Model
             FROM maintenance_logs WHERE vehicle_id = ?";
         $maintStats = $this->queryOne($sqlMaint, [$vehicleId]);
 
-        // Consumo medio (L/100km)
+        // Consumo medio (L/100km) - excluir litros del primer llenado (baseline)
         $sqlConsumption = "SELECT
             SUM(liters) as total_liters,
-            MAX(km) - MIN(km) as km_range
+            MAX(km) - MIN(km) as km_range,
+            (SELECT liters FROM fuel_logs WHERE vehicle_id = ? AND full_tank = 1 ORDER BY km ASC, id ASC LIMIT 1) as first_fill_liters
             FROM fuel_logs
             WHERE vehicle_id = ? AND full_tank = 1";
-        $consumptionData = $this->queryOne($sqlConsumption, [$vehicleId]);
+        $consumptionData = $this->queryOne($sqlConsumption, [$vehicleId, $vehicleId]);
 
         $avgConsumption = 0;
-        if ($consumptionData && $consumptionData['km_range'] > 0) {
-            $avgConsumption = ($consumptionData['total_liters'] / $consumptionData['km_range']) * 100;
+        if ($consumptionData && $consumptionData['km_range'] > 0 && $consumptionData['first_fill_liters'] !== null) {
+            $consumedLiters = $consumptionData['total_liters'] - $consumptionData['first_fill_liters'];
+            if ($consumedLiters > 0) {
+                $avgConsumption = ($consumedLiters / $consumptionData['km_range']) * 100;
+            }
         }
 
         return [

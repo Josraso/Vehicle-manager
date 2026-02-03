@@ -51,6 +51,17 @@ class StatsController extends Controller
         // Años disponibles para selector
         $availableYears = $this->getAvailableYears($vehicleId);
 
+        // KM recorridos desde primer registro y coste por km
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+            SELECT km FROM odometer_logs WHERE vehicle_id = ?
+            UNION
+            SELECT km FROM fuel_logs WHERE vehicle_id = ?
+        ) AS all_km");
+        $stmt->execute([$vehicle['current_km'], $vehicleId, $vehicleId]);
+        $kmDriven = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+        $costPerKm = $kmDriven > 0 ? round($stats['total_cost'] / $kmDriven, 3) : 0;
+
         $this->render('stats/index', [
             'vehicle' => $vehicle,
             'stats' => $stats,
@@ -58,7 +69,9 @@ class StatsController extends Controller
             'maintStats' => $maintStats,
             'chartData' => $chartData,
             'selectedYear' => $year,
-            'availableYears' => $availableYears
+            'availableYears' => $availableYears,
+            'kmDriven' => $kmDriven,
+            'costPerKm' => $costPerKm
         ]);
     }
 

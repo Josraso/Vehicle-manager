@@ -61,10 +61,7 @@
                 <h6 class="mt-2 mb-1">Gasto Total</h6>
                 <p class="h4 mb-0"><?= number_format($stats['total_cost'], 2) ?> €</p>
                 <small class="text-muted">
-                    <?php
-                    $costPerKm = $vehicle['current_km'] > 0 ? $stats['total_cost'] / $vehicle['current_km'] : 0;
-                    echo number_format($costPerKm, 3) . ' €/km';
-                    ?>
+                    <?= $costPerKm > 0 ? number_format($costPerKm, 3) . ' €/km' : '—' ?>
                 </small>
             </div>
         </div>

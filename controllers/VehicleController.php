@@ -77,6 +77,32 @@ class VehicleController extends Controller
         $yearlyFuel = $this->fuelModel->getYearlyTotal($id);
         $yearlyMaint = $this->maintenanceModel->getYearlyTotal($id);
 
+        // KM recorridos desde el primer registro y coste por km
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+            SELECT km FROM odometer_logs WHERE vehicle_id = ?
+            UNION
+            SELECT km FROM fuel_logs WHERE vehicle_id = ?
+        ) AS all_km");
+        $stmt->execute([$vehicle['current_km'], $id, $id]);
+        $kmDriven = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+        $costPerKm = $kmDriven > 0 ? round($stats['total_cost'] / $kmDriven, 3) : 0;
+
+        // Consumo por repostaje lleno (entre llenados consecutivos)
+        $lastFullFillKm = null;
+        for ($i = count($fuelLogs) - 1; $i >= 0; $i--) {
+            $fuelLogs[$i]['row_consumption'] = null;
+            if ($fuelLogs[$i]['full_tank']) {
+                if ($lastFullFillKm !== null) {
+                    $kmDiff = $fuelLogs[$i]['km'] - $lastFullFillKm;
+                    if ($kmDiff > 0) {
+                        $fuelLogs[$i]['row_consumption'] = round(($fuelLogs[$i]['liters'] / $kmDiff) * 100, 1);
+                    }
+                }
+                $lastFullFillKm = $fuelLogs[$i]['km'];
+            }
+        }
+
         $this->render('vehicles/show', [
             'vehicle' => $vehicle,
             'stats' => $stats,
@@ -89,6 +115,8 @@ class VehicleController extends Controller
             'monthlyMaint' => $monthlyMaint,
             'yearlyFuel' => $yearlyFuel,
             'yearlyMaint' => $yearlyMaint,
+            'costPerKm' => $costPerKm,
+            'kmDriven' => $kmDriven,
             'flash' => $this->getFlash(),
             'csrf_token' => $this->generateCsrf()
         ]);

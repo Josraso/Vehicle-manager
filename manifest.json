@@ -1,0 +1,18 @@
+{
+  "name": "Vehicle Manager",
+  "short_name": "Vehicle Mgr",
+  "description": "Control y gestión de vehículos",
+  "start_url": "index.php?action=dashboard",
+  "scope": ".",
+  "display": "standalone",
+  "theme_color": "#0D6EFD",
+  "background_color": "#0D6EFD",
+  "icons": [
+    {
+      "src": "assets/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

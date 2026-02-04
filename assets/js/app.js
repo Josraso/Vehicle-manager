@@ -2,6 +2,18 @@
  * Vehicle Manager - JavaScript Principal
  */
 
+// =====================================================
+// PWA - CAPTURA DEL PROMPT DE INSTALACIÓN
+// =====================================================
+let deferredInstallPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    document.getElementById('pwaInstallItem')?.classList.remove('d-none');
+});
+
+
 document.addEventListener('DOMContentLoaded', function() {
 
     // =====================================================
@@ -203,6 +215,27 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+
+    // =====================================================
+    // PWA - BOTÓN INSTALAR
+    // =====================================================
+
+    const pwaInstallBtn = document.getElementById('pwaInstallBtn');
+    if (pwaInstallBtn) {
+        // Si ya tenemos el prompt guardado, mostrar botón
+        if (deferredInstallPrompt) {
+            document.getElementById('pwaInstallItem')?.classList.remove('d-none');
+        }
+
+        pwaInstallBtn.addEventListener('click', async () => {
+            if (!deferredInstallPrompt) return;
+            deferredInstallPrompt.prompt();
+            await deferredInstallPrompt.userChoice;
+            deferredInstallPrompt = null;
+            document.getElementById('pwaInstallItem')?.classList.add('d-none');
+        });
+    }
 
 
     // =====================================================

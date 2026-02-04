@@ -16,6 +16,10 @@
 
     <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D6EFD">
 </head>
 <body>
     <!-- Banner de impersonación -->
@@ -115,6 +119,13 @@
                 </ul>
 
                 <ul class="navbar-nav">
+                    <!-- PWA Install -->
+                    <li class="nav-item d-none" id="pwaInstallItem">
+                        <button class="btn btn-link nav-link" id="pwaInstallBtn" title="Instalar en móvil">
+                            <i class="bi bi-phone-download"></i>
+                        </button>
+                    </li>
+
                     <!-- Theme Toggle -->
                     <li class="nav-item">
                         <button class="btn btn-link nav-link" id="themeToggle" title="Cambiar tema">
@@ -172,5 +183,12 @@
 
     <!-- Custom JS -->
     <script src="assets/js/app.js"></script>
+
+    <!-- PWA Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+    </script>
 </body>
 </html>

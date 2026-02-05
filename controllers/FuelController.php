@@ -42,6 +42,7 @@ class FuelController extends Controller
         $this->render('fuel/create', [
             'vehicle' => $vehicle,
             'fuelTypes' => $fuelTypes,
+            'defaultFuelType' => $vehicle['default_fuel_type_id'] ?? 1,
             'csrf_token' => $this->generateCsrf()
         ]);
     }

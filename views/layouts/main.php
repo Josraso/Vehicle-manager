@@ -16,8 +16,23 @@
 
     <!-- Custom CSS -->
     <link href="assets/css/style.css" rel="stylesheet">
+
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D6EFD">
 </head>
 <body>
+    <!-- Banner de impersonación -->
+    <?php if (isset($_SESSION['impersonating_admin'])): ?>
+    <div class="alert alert-warning text-center py-2 m-0" role="alert" style="border-radius:0;">
+        <i class="bi bi-person-lines-fill me-2"></i>
+        Estás viendo la aplicación como <strong><?= htmlspecialchars(Auth::name()) ?></strong>
+        <a href="index.php?action=admin_impersonate_end" class="btn btn-sm btn-outline-dark ms-3">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Volver a Admin
+        </a>
+    </div>
+    <?php endif; ?>
+
     <!-- Navbar -->
     <nav class="navbar navbar-expand-lg sticky-top bg-body-tertiary border-bottom">
         <div class="container">
@@ -71,16 +86,46 @@
                             </li>
                             <li><hr class="dropdown-divider"></li>
                             <li>
+                                <a class="dropdown-item" href="index.php?action=admin_tickets">
+                                    <i class="bi bi-headset me-2"></i>Tickets
+                                    <?php
+                                    $openTicketCount = (new Ticket())->countOpen();
+                                    if ($openTicketCount > 0):
+                                    ?>
+                                        <span class="badge bg-danger ms-auto"><?= $openTicketCount ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            </li>
+                            <li>
                                 <a class="dropdown-item" href="index.php?action=admin_logs">
                                     <i class="bi bi-clock-history me-2"></i>Logs
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="index.php?action=admin_health">
+                                    <i class="bi bi-activity me-2"></i>Salud del Sistema
                                 </a>
                             </li>
                         </ul>
                     </li>
                     <?php endif; ?>
+                    <?php if ((new Setting())->get('support_enabled', true)): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.php?action=tickets">
+                            <i class="bi bi-headset me-1"></i> Soporte
+                        </a>
+                    </li>
+                    <?php endif; ?>
                 </ul>
 
                 <ul class="navbar-nav">
+                    <!-- PWA Install -->
+                    <li class="nav-item d-none" id="pwaInstallItem">
+                        <button class="btn btn-link nav-link" id="pwaInstallBtn" title="Instalar en móvil">
+                            <i class="bi bi-phone-download"></i>
+                        </button>
+                    </li>
+
                     <!-- Theme Toggle -->
                     <li class="nav-item">
                         <button class="btn btn-link nav-link" id="themeToggle" title="Cambiar tema">
@@ -138,5 +183,12 @@
 
     <!-- Custom JS -->
     <script src="assets/js/app.js"></script>
+
+    <!-- PWA Service Worker -->
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js').catch(() => {});
+    }
+    </script>
 </body>
 </html>

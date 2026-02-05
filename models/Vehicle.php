@@ -38,7 +38,8 @@ class Vehicle extends Model
             'displacement' => $data['displacement'] ?? null,
             'license_plate' => $data['license_plate'],
             'photo' => $data['photo'] ?? null,
-            'current_km' => $data['current_km'] ?? 0
+            'current_km' => $data['current_km'] ?? 0,
+            'default_fuel_type_id' => $data['default_fuel_type_id'] ?? 1
         ]);
     }
 
@@ -73,17 +74,21 @@ class Vehicle extends Model
             FROM maintenance_logs WHERE vehicle_id = ?";
         $maintStats = $this->queryOne($sqlMaint, [$vehicleId]);
 
-        // Consumo medio (L/100km)
+        // Consumo medio (L/100km) - excluir litros del primer llenado (baseline)
         $sqlConsumption = "SELECT
             SUM(liters) as total_liters,
-            MAX(km) - MIN(km) as km_range
+            MAX(km) - MIN(km) as km_range,
+            (SELECT liters FROM fuel_logs WHERE vehicle_id = ? AND full_tank = 1 ORDER BY km ASC, id ASC LIMIT 1) as first_fill_liters
             FROM fuel_logs
             WHERE vehicle_id = ? AND full_tank = 1";
-        $consumptionData = $this->queryOne($sqlConsumption, [$vehicleId]);
+        $consumptionData = $this->queryOne($sqlConsumption, [$vehicleId, $vehicleId]);
 
         $avgConsumption = 0;
-        if ($consumptionData && $consumptionData['km_range'] > 0) {
-            $avgConsumption = ($consumptionData['total_liters'] / $consumptionData['km_range']) * 100;
+        if ($consumptionData && $consumptionData['km_range'] > 0 && $consumptionData['first_fill_liters'] !== null) {
+            $consumedLiters = $consumptionData['total_liters'] - $consumptionData['first_fill_liters'];
+            if ($consumedLiters > 0) {
+                $avgConsumption = ($consumedLiters / $consumptionData['km_range']) * 100;
+            }
         }
 
         return [
@@ -95,6 +100,31 @@ class Vehicle extends Model
             'total_maint_cost' => (float) $maintStats['total_maint_cost'],
             'total_cost' => (float) $fuelStats['total_fuel_cost'] + (float) $maintStats['total_maint_cost'],
             'avg_consumption' => round($avgConsumption, 2)
+        ];
+    }
+
+    /**
+     * Estadísticas globales de todos los vehículos del usuario
+     */
+    public function getGlobalStats(int $userId): array
+    {
+        $year = date('Y');
+
+        $sql = "SELECT
+            COALESCE((SELECT SUM(fl.total_cost) FROM fuel_logs fl INNER JOIN vehicles v ON fl.vehicle_id = v.id WHERE v.user_id = ? AND YEAR(fl.date) = ?), 0) as yearly_fuel,
+            COALESCE((SELECT SUM(ml.cost) FROM maintenance_logs ml INNER JOIN vehicles v ON ml.vehicle_id = v.id WHERE v.user_id = ? AND YEAR(ml.date) = ?), 0) as yearly_maint,
+            COALESCE((SELECT SUM(fl.total_cost) FROM fuel_logs fl INNER JOIN vehicles v ON fl.vehicle_id = v.id WHERE v.user_id = ?), 0) as total_fuel,
+            COALESCE((SELECT SUM(ml.cost) FROM maintenance_logs ml INNER JOIN vehicles v ON ml.vehicle_id = v.id WHERE v.user_id = ?), 0) as total_maint";
+
+        $result = $this->queryOne($sql, [$userId, $year, $userId, $year, $userId, $userId]);
+
+        return [
+            'yearly_fuel'  => (float) $result['yearly_fuel'],
+            'yearly_maint' => (float) $result['yearly_maint'],
+            'yearly_total' => (float) $result['yearly_fuel'] + (float) $result['yearly_maint'],
+            'total_fuel'   => (float) $result['total_fuel'],
+            'total_maint'  => (float) $result['total_maint'],
+            'total_cost'   => (float) $result['total_fuel'] + (float) $result['total_maint'],
         ];
     }
 

@@ -79,9 +79,9 @@
 </div>
 <?php endif; ?>
 
-<!-- Estadísticas rápidas -->
-<div class="row g-3 mb-4">
-    <div class="col-6 col-md-3">
+<!-- Estadísticas rápidas: Costes -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-md-4">
         <div class="card text-center h-100">
             <div class="card-body">
                 <i class="bi bi-fuel-pump text-success fs-3"></i>
@@ -91,7 +91,7 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="card text-center h-100">
             <div class="card-body">
                 <i class="bi bi-wrench text-warning fs-3"></i>
@@ -101,7 +101,20 @@
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <i class="bi bi-cash-stack text-danger fs-3"></i>
+                <h6 class="card-title mt-2 mb-1">Total Gastado</h6>
+                <p class="h5 mb-0"><?= number_format($stats['total_cost'], 2) ?> €</p>
+                <small class="text-muted">siempre</small>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Estadísticas rápidas: Eficiencia -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-4">
         <div class="card text-center h-100">
             <div class="card-body">
                 <i class="bi bi-droplet text-primary fs-3"></i>
@@ -109,17 +122,29 @@
                 <p class="h5 mb-0">
                     <?= $consumption ? number_format($consumption['consumption'], 1) : '--' ?> L/100km
                 </p>
-                <small class="text-muted">media</small>
+                <small class="text-muted">último tramo</small>
             </div>
         </div>
     </div>
-    <div class="col-6 col-md-3">
+    <div class="col-6 col-md-4">
         <div class="card text-center h-100">
             <div class="card-body">
-                <i class="bi bi-cash-stack text-danger fs-3"></i>
-                <h6 class="card-title mt-2 mb-1">Total Gastado</h6>
-                <p class="h5 mb-0"><?= number_format($stats['total_cost'], 2) ?> €</p>
-                <small class="text-muted">siempre</small>
+                <i class="bi bi-coin text-success fs-3"></i>
+                <h6 class="card-title mt-2 mb-1">Coste / km</h6>
+                <p class="h5 mb-0">
+                    <?= $costPerKm > 0 ? number_format($costPerKm, 3) : '--' ?> €/km
+                </p>
+                <small class="text-muted">total acumulado</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-4">
+        <div class="card text-center h-100">
+            <div class="card-body">
+                <i class="bi bi-speedometer2 text-info fs-3"></i>
+                <h6 class="card-title mt-2 mb-1">Recorrido</h6>
+                <p class="h5 mb-0"><?= number_format($kmDriven) ?> km</p>
+                <small class="text-muted">desde inicio</small>
             </div>
         </div>
     </div>
@@ -189,8 +214,23 @@
                         </a>
                     </div>
                 <?php else: ?>
+                    <!-- Filtro por fechas -->
+                    <div class="d-flex gap-2 align-items-end mb-3 flex-wrap" id="fuelFilterBar">
+                        <div>
+                            <label class="form-label small mb-1">Desde</label>
+                            <input type="date" class="form-control form-control-sm" id="fuelDateFrom" onchange="filterTable('fuel')">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1">Hasta</label>
+                            <input type="date" class="form-control form-control-sm" id="fuelDateTo" onchange="filterTable('fuel')">
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilter('fuel')">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </button>
+                        <span class="text-muted small ms-auto" id="fuelCount"><?= count($fuelLogs) ?> registros</span>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle" id="fuelTable">
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
@@ -199,12 +239,13 @@
                                     <th class="text-end">Litros</th>
                                     <th class="text-end">€/L</th>
                                     <th class="text-end">Total</th>
+                                    <th class="text-end">L/100km</th>
                                     <th class="text-center">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($fuelLogs as $log): ?>
-                                    <tr>
+                                    <tr data-date="<?= htmlspecialchars($log['date']) ?>">
                                         <td><?= date('d/m/Y', strtotime($log['date'])) ?></td>
                                         <td>
                                             <span class="badge bg-body-secondary text-body">
@@ -218,6 +259,7 @@
                                         <td class="text-end"><?= number_format($log['liters'], 2) ?></td>
                                         <td class="text-end"><?= number_format($log['price_per_liter'], 3) ?> €</td>
                                         <td class="text-end fw-bold"><?= number_format($log['total_cost'], 2) ?> €</td>
+                                        <td class="text-end small text-muted"><?= $log['row_consumption'] !== null ? number_format($log['row_consumption'], 1) : '—' ?></td>
                                         <td class="text-center">
                                             <div class="btn-group btn-group-sm">
                                                 <a href="index.php?action=fuel_edit&id=<?= $log['id'] ?>" class="btn btn-outline-primary" title="Editar">
@@ -252,8 +294,23 @@
                         </a>
                     </div>
                 <?php else: ?>
+                    <!-- Filtro por fechas -->
+                    <div class="d-flex gap-2 align-items-end mb-3 flex-wrap" id="maintFilterBar">
+                        <div>
+                            <label class="form-label small mb-1">Desde</label>
+                            <input type="date" class="form-control form-control-sm" id="maintDateFrom" onchange="filterTable('maint')">
+                        </div>
+                        <div>
+                            <label class="form-label small mb-1">Hasta</label>
+                            <input type="date" class="form-control form-control-sm" id="maintDateTo" onchange="filterTable('maint')">
+                        </div>
+                        <button class="btn btn-outline-secondary btn-sm" onclick="resetFilter('maint')">
+                            <i class="bi bi-x-lg"></i> Limpiar
+                        </button>
+                        <span class="text-muted small ms-auto" id="maintCount"><?= count($maintenanceLogs) ?> registros</span>
+                    </div>
                     <div class="table-responsive">
-                        <table class="table table-hover align-middle">
+                        <table class="table table-hover align-middle" id="maintTable">
                             <thead>
                                 <tr>
                                     <th>Fecha</th>
@@ -267,7 +324,7 @@
                             </thead>
                             <tbody>
                                 <?php foreach ($maintenanceLogs as $log): ?>
-                                    <tr>
+                                    <tr data-date="<?= htmlspecialchars($log['date']) ?>">
                                         <td><?= date('d/m/Y', strtotime($log['date'])) ?></td>
                                         <td><?= htmlspecialchars($log['type_name'] ?? 'N/A') ?></td>
                                         <td class="text-end"><?= number_format($log['km']) ?></td>
@@ -429,5 +486,40 @@ function confirmDelete(type, id, name) {
     document.getElementById('deleteItemId').value = id;
     document.getElementById('deleteItemForm').action = 'index.php?action=' + type + '_delete';
     new bootstrap.Modal(document.getElementById('deleteItemModal')).show();
+}
+
+// Filtro por rango de fechas
+const filterConfig = {
+    fuel: { tableId: 'fuelTable', fromId: 'fuelDateFrom', toId: 'fuelDateTo', countId: 'fuelCount' },
+    maint: { tableId: 'maintTable', fromId: 'maintDateFrom', toId: 'maintDateTo', countId: 'maintCount' }
+};
+
+function filterTable(prefix) {
+    const cfg = filterConfig[prefix];
+    const table = document.getElementById(cfg.tableId);
+    if (!table) return;
+
+    const from = document.getElementById(cfg.fromId).value;
+    const to   = document.getElementById(cfg.toId).value;
+    const rows = table.querySelectorAll('tbody tr');
+    let visible = 0;
+
+    rows.forEach(row => {
+        const date = row.dataset.date; // YYYY-MM-DD
+        let show = true;
+        if (from && date < from) show = false;
+        if (to && date > to)     show = false;
+        row.style.display = show ? '' : 'none';
+        if (show) visible++;
+    });
+
+    document.getElementById(cfg.countId).textContent = visible + ' registros';
+}
+
+function resetFilter(prefix) {
+    const cfg = filterConfig[prefix];
+    document.getElementById(cfg.fromId).value = '';
+    document.getElementById(cfg.toId).value = '';
+    filterTable(prefix);
 }
 </script>

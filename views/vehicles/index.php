@@ -4,10 +4,63 @@
     <h1 class="h3 mb-0">
         <i class="bi bi-grid-fill me-2"></i>Mis Vehículos
     </h1>
-    <a href="index.php?action=vehicle_create" class="btn btn-primary">
-        <i class="bi bi-plus-lg me-1"></i> Añadir Vehículo
-    </a>
+    <div class="d-flex gap-2">
+        <?php if (count($vehicles) >= 2): ?>
+            <a href="index.php?action=compare" class="btn btn-outline-secondary">
+                <i class="bi bi-bar-chart-bars me-1"></i> Comparar
+            </a>
+        <?php endif; ?>
+        <a href="index.php?action=vehicle_create" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i> Añadir Vehículo
+        </a>
+    </div>
 </div>
+
+<!-- Resumen global -->
+<?php if (!empty($vehicles)): ?>
+<div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100 border-success">
+            <div class="card-body py-3">
+                <i class="bi bi-fuel-pump text-success fs-4"></i>
+                <h6 class="mt-1 mb-0">Combustible</h6>
+                <p class="h5 mb-0"><?= number_format($globalStats['yearly_fuel'], 2) ?> €</p>
+                <small class="text-muted">este año</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100 border-warning">
+            <div class="card-body py-3">
+                <i class="bi bi-wrench text-warning fs-4"></i>
+                <h6 class="mt-1 mb-0">Mantenimiento</h6>
+                <p class="h5 mb-0"><?= number_format($globalStats['yearly_maint'], 2) ?> €</p>
+                <small class="text-muted">este año</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100 border-danger">
+            <div class="card-body py-3">
+                <i class="bi bi-cash-stack text-danger fs-4"></i>
+                <h6 class="mt-1 mb-0">Gasto Total</h6>
+                <p class="h5 mb-0"><?= number_format($globalStats['yearly_total'], 2) ?> €</p>
+                <small class="text-muted">este año</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card text-center h-100 border-<?= $totalReminders > 0 ? 'warning' : 'secondary' ?>">
+            <div class="card-body py-3">
+                <i class="bi bi-bell<?= $totalReminders > 0 ? '-fill text-warning' : ' text-muted' ?> fs-4"></i>
+                <h6 class="mt-1 mb-0">Recordatorios</h6>
+                <p class="h5 mb-0"><?= $totalReminders ?></p>
+                <small class="text-muted">pendiente<?= $totalReminders !== 1 ? 's' : '' ?></small>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php if (empty($vehicles)): ?>
     <div class="card">

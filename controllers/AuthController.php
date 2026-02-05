@@ -83,6 +83,21 @@ class AuthController extends Controller
         // Actualizar último login
         $this->userModel->updateLastLogin($user['id']);
 
+        // Recuerdo de usuario: extiende la sesión 30 días
+        if ($this->post('remember_me')) {
+            $_SESSION['remember_me'] = true;
+            $_SESSION['session_expires'] = time() + (30 * 24 * 60 * 60);
+            setcookie(session_name(), session_id(), [
+                'expires' => time() + (30 * 24 * 60 * 60),
+                'path' => '/',
+                'secure' => isset($_SERVER['HTTPS']),
+                'httponly' => true,
+                'samesite' => 'Lax'
+            ]);
+        } else {
+            $_SESSION['session_expires'] = time() + 7200;
+        }
+
         $this->redirect('index.php?action=dashboard');
     }
 
@@ -156,6 +171,15 @@ class AuthController extends Controller
         $userId = $this->userModel->createUser($data['name'], $data['email'], $data['password']);
 
         if ($userId) {
+            $config = require __DIR__ . '/../config/app.php';
+            $mailer = new Mailer();
+            $mailer->sendTemplate('welcome', $data['email'], $data['name'], [
+                'user_name' => $data['name'],
+                'user_email' => $data['email'],
+                'site_name' => $config['app_name'] ?? 'Vehicle Manager',
+                'site_url' => $config['url'] ?? ''
+            ]);
+
             $this->flash('success', 'Cuenta creada correctamente. Inicia sesión.');
             $this->redirect('index.php?action=login');
         } else {
@@ -203,22 +227,21 @@ class AuthController extends Controller
 
         if ($user) {
             $token = $this->userModel->generateResetToken($user['id']);
-            // Aquí se enviaría el email con el token
-            // Por ahora mostramos el enlace
-            $resetLink = "index.php?action=reset_password&token={$token}";
+            $config = require __DIR__ . '/../config/app.php';
+            $resetLink = $config['url'] . "/index.php?action=reset_password&token={$token}";
 
-            $this->renderWithoutLayout('auth/forgot_password', [
-                'success' => true,
-                'reset_link' => $resetLink,
-                'csrf_token' => $this->generateCsrf()
-            ]);
-        } else {
-            // Por seguridad, mostramos el mismo mensaje aunque no exista
-            $this->renderWithoutLayout('auth/forgot_password', [
-                'success' => true,
-                'csrf_token' => $this->generateCsrf()
+            $mailer = new Mailer();
+            $mailer->sendTemplate('password_reset', $user['email'], $user['name'], [
+                'user_name' => $user['name'],
+                'reset_link' => $resetLink
             ]);
         }
+
+        // Mismo mensaje si existe o no (no revelar qué emails están registrados)
+        $this->renderWithoutLayout('auth/forgot_password', [
+            'success' => true,
+            'csrf_token' => $this->generateCsrf()
+        ]);
     }
 
     /**

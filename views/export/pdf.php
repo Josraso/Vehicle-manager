@@ -131,6 +131,14 @@
                 <div class="label">Consumo Medio</div>
                 <div class="value"><?= $stats['avg_consumption'] > 0 ? number_format($stats['avg_consumption'], 1) . ' L/100km' : 'N/A' ?></div>
             </div>
+            <div class="summary-item">
+                <div class="label">Coste / km</div>
+                <div class="value"><?= $costPerKm > 0 ? number_format($costPerKm, 3) . ' €/km' : 'N/A' ?></div>
+            </div>
+            <div class="summary-item">
+                <div class="label">Recorrido</div>
+                <div class="value"><?= number_format($kmDriven) ?> km</div>
+            </div>
         </div>
     </div>
     <?php endif; ?>
@@ -147,6 +155,7 @@
                     <th class="text-right">Litros</th>
                     <th class="text-right">€/L</th>
                     <th class="text-right">Total</th>
+                    <th class="text-right">L/100km</th>
                 </tr>
             </thead>
             <tbody>
@@ -164,6 +173,7 @@
                     <td class="text-right"><?= number_format($log['liters'], 2) ?></td>
                     <td class="text-right"><?= number_format($log['price_per_liter'], 3) ?> €</td>
                     <td class="text-right"><?= number_format($log['total_cost'], 2) ?> €</td>
+                    <td class="text-right"><?= $log['row_consumption'] !== null ? number_format($log['row_consumption'], 1) : '—' ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -173,6 +183,7 @@
                     <td class="text-right"><?= number_format($totalLiters, 2) ?> L</td>
                     <td></td>
                     <td class="text-right"><?= number_format($totalFuelCost, 2) ?> €</td>
+                    <td></td>
                 </tr>
             </tfoot>
         </table>

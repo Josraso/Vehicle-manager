@@ -1,0 +1,16 @@
+db.sqlite
+*.sqlite
+uploads/
+.installed
+
+# Capacitor / dependencias
+node_modules/
+package-lock.json
+
+# Android: solo build y caches, no el proyecto fuente
+android/.gradle/
+android/app/build/
+android/build/
+
+# iOS (si se añade en futuro)
+ios/

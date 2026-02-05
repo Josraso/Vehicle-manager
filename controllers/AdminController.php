@@ -43,6 +43,23 @@ class AdminController extends Controller
         // Actividad reciente
         $recentActivity = $this->activityModel->getRecent(10);
 
+        // Alertas de mantenimiento próximos (global)
+        $reminderDays = max((int) $this->settingModel->get('reminder_days_before', 7), 14);
+        $maintenanceAlerts = $db->query(
+            "SELECT m.id, u.name as user_name, v.brand, v.model, v.license_plate, v.current_km,
+                    mt.name as maintenance_type, m.next_date, m.next_km
+             FROM maintenance_logs m
+             JOIN vehicles v ON m.vehicle_id = v.id
+             JOIN users u ON v.user_id = u.id
+             LEFT JOIN maintenance_types mt ON m.maintenance_type_id = mt.id
+             WHERE (
+                 (m.next_date IS NOT NULL AND m.next_date <= DATE_ADD(NOW(), INTERVAL {$reminderDays} DAY))
+                 OR (m.next_km IS NOT NULL AND m.next_km <= v.current_km + 500)
+             )
+             ORDER BY COALESCE(m.next_date, '9999-12-31') ASC
+             LIMIT 15"
+        )->fetchAll();
+
         $this->render('admin/dashboard', [
             'userStats' => $userStats,
             'totalVehicles' => $totalVehicles,
@@ -51,6 +68,7 @@ class AdminController extends Controller
             'totalFuelCost' => $totalFuelCost,
             'totalMaintCost' => $totalMaintCost,
             'recentActivity' => $recentActivity,
+            'maintenanceAlerts' => $maintenanceAlerts,
             'flash' => $this->getFlash()
         ]);
     }
@@ -102,9 +120,22 @@ class AdminController extends Controller
 
         $vehicles = $this->userModel->getUserVehicles($id);
 
+        // Stats adicionales para panel de detalle
+        $db = Database::getInstance();
+        $stmt = $db->prepare(
+            "SELECT
+                (SELECT COUNT(*) FROM fuel_logs fl JOIN vehicles v ON fl.vehicle_id = v.id WHERE v.user_id = ?) as fuel_count,
+                (SELECT COUNT(*) FROM maintenance_logs ml JOIN vehicles v ON ml.vehicle_id = v.id WHERE v.user_id = ?) as maint_count,
+                (SELECT COALESCE(SUM(total_cost), 0) FROM fuel_logs fl JOIN vehicles v ON fl.vehicle_id = v.id WHERE v.user_id = ?) as fuel_cost,
+                (SELECT COALESCE(SUM(cost), 0) FROM maintenance_logs ml JOIN vehicles v ON ml.vehicle_id = v.id WHERE v.user_id = ?) as maint_cost"
+        );
+        $stmt->execute([$id, $id, $id, $id]);
+        $userStats = $stmt->fetch();
+
         $this->render('admin/users/edit', [
             'user' => $user,
             'vehicles' => $vehicles,
+            'userStats' => $userStats,
             'csrf_token' => $this->generateCsrf()
         ]);
     }
@@ -258,7 +289,8 @@ class AdminController extends Controller
             'admin_email' => $this->settingModel->get('admin_email', ''),
             'allow_registration' => $this->settingModel->get('allow_registration', true),
             'reminder_days_before' => $this->settingModel->get('reminder_days_before', 7),
-            'reminder_enabled' => $this->settingModel->get('reminder_enabled', true)
+            'reminder_enabled' => $this->settingModel->get('reminder_enabled', true),
+            'support_enabled' => $this->settingModel->get('support_enabled', true)
         ];
 
         $this->render('admin/settings/general', [
@@ -285,6 +317,7 @@ class AdminController extends Controller
         $this->settingModel->set('allow_registration', $this->post('allow_registration') ? '1' : '0', 'boolean');
         $this->settingModel->set('reminder_days_before', (int) $this->post('reminder_days_before', 7), 'integer');
         $this->settingModel->set('reminder_enabled', $this->post('reminder_enabled') ? '1' : '0', 'boolean');
+        $this->settingModel->set('support_enabled', $this->post('support_enabled') ? '1' : '0', 'boolean');
 
         $this->activityModel->log('settings_update', 'Configuración general actualizada');
 
@@ -400,7 +433,12 @@ class AdminController extends Controller
 
         if ($result) {
             $this->activityModel->log('email_test', "Email de prueba enviado a: {$testEmail}");
-            $this->flash('success', "Email de prueba enviado correctamente a {$testEmail}");
+
+            if (!empty($connectionTest['details']['warning'])) {
+                $this->flash('error', 'Email enviado, pero revisa: ' . $connectionTest['details']['warning']);
+            } else {
+                $this->flash('success', "Email de prueba enviado correctamente a {$testEmail}");
+            }
         } else {
             $this->flash('error', 'Error al enviar: ' . $mailer->getLastError());
         }
@@ -488,7 +526,7 @@ class AdminController extends Controller
         $page = (int) $this->get('page', 1);
         $filters = [
             'user_id' => $this->get('user_id', ''),
-            'action' => $this->get('action', ''),
+            'action' => $this->get('action_filter', ''),
             'date_from' => $this->get('date_from', ''),
             'date_to' => $this->get('date_to', '')
         ];
@@ -496,15 +534,21 @@ class AdminController extends Controller
         $logs = $this->activityModel->getFiltered($filters, $page, 30);
         $actions = $this->activityModel->getUniqueActions();
 
+        $db = Database::getInstance();
+        $users = $db->query("SELECT id, name FROM users ORDER BY name")->fetchAll();
+
         $this->render('admin/logs/index', [
             'logs' => $logs,
             'filters' => $filters,
-            'actions' => $actions
+            'actions' => $actions,
+            'users' => $users,
+            'flash' => $this->getFlash(),
+            'csrf_token' => $this->generateCsrf()
         ]);
     }
 
     /**
-     * Limpiar logs antiguos
+     * Limpiar logs
      */
     public function logsClear(): void
     {
@@ -518,9 +562,308 @@ class AdminController extends Controller
         $days = (int) $this->post('days', 90);
         $deleted = $this->activityModel->cleanOldLogs($days);
 
-        $this->activityModel->log('logs_clear', "Logs antiguos eliminados: {$deleted} registros");
+        $message = $days <= 0
+            ? "Se eliminaron todos los {$deleted} registros de logs"
+            : "Se eliminaron {$deleted} registros de más de {$days} días";
 
-        $this->flash('success', "Se eliminaron {$deleted} registros de más de {$days} días");
+        $this->activityModel->log('logs_clear', $message);
+
+        $this->flash('success', $message);
         $this->redirect('index.php?action=admin_logs');
+    }
+
+    /**
+     * Estadísticas de logs
+     */
+    public function logStats(): void
+    {
+        Auth::requireAdmin();
+
+        $stats = $this->activityModel->getStats();
+
+        $this->render('admin/logs/stats', [
+            'stats' => $stats
+        ]);
+    }
+
+    /**
+     * Exportar logs a CSV
+     */
+    public function logExport(): void
+    {
+        Auth::requireAdmin();
+
+        $filters = [
+            'user_id' => $this->get('user_id', ''),
+            'action' => $this->get('action_filter', ''),
+            'date_from' => $this->get('date_from', ''),
+            'date_to' => $this->get('date_to', '')
+        ];
+
+        $logs = $this->activityModel->getFiltered($filters, 1, 50000);
+
+        $filename = 'logs_actividad_' . date('Y-m-d') . '.csv';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $output = fopen('php://output', 'w');
+        fprintf($output, chr(0xEF) . chr(0xBB) . chr(0xBF));
+
+        fputcsv($output, ['Fecha', 'Usuario', 'Email', 'Acción', 'Descripción', 'Entidad', 'ID', 'IP', 'User Agent'], ';');
+
+        foreach ($logs['data'] as $log) {
+            fputcsv($output, [
+                date('d/m/Y H:i:s', strtotime($log['created_at'])),
+                $log['user_name'] ?? 'Sistema',
+                $log['user_email'] ?? '',
+                $log['action'],
+                $log['description'],
+                $log['entity_type'] ?? '',
+                $log['entity_id'] ?? '',
+                $log['ip_address'] ?? '',
+                $log['user_agent'] ?? ''
+            ], ';');
+        }
+
+        fclose($output);
+        exit;
+    }
+
+    /**
+     * Impersonar usuario (admin se conecta como ese usuario)
+     */
+    public function impersonate(): void
+    {
+        Auth::requireAdmin();
+
+        if (!$this->isPost() || !$this->validateCsrf()) {
+            $this->redirect('index.php?action=admin_users');
+            return;
+        }
+
+        $id = (int) $this->post('id');
+        $user = $this->userModel->find($id);
+
+        if (!$user) {
+            $this->flash('error', 'Usuario no encontrado');
+            $this->redirect('index.php?action=admin_users');
+            return;
+        }
+
+        if ($user['role'] === 'admin') {
+            $this->flash('error', 'No se puede impersonar a otro administrador');
+            $this->redirect('index.php?action=admin_users');
+            return;
+        }
+
+        // Guardar sesión del admin actual
+        $_SESSION['impersonating_admin'] = [
+            'id' => Auth::id(),
+            'name' => Auth::name(),
+            'email' => Auth::email(),
+            'role' => Auth::role(),
+            'theme' => Auth::theme()
+        ];
+
+        $this->activityModel->log('admin_impersonate', "Admin impersonó al usuario: {$user['email']}", 'user', $user['id']);
+
+        // Cargar sesión del usuario objetivo
+        Auth::login($user);
+
+        $this->redirect('index.php?action=dashboard');
+    }
+
+    /**
+     * Finalizar impersonación y volver a sesión admin
+     */
+    public function impersonateEnd(): void
+    {
+        if (!isset($_SESSION['impersonating_admin'])) {
+            $this->redirect('index.php?action=dashboard');
+            return;
+        }
+
+        $admin = $_SESSION['impersonating_admin'];
+        unset($_SESSION['impersonating_admin']);
+
+        Auth::login($admin);
+
+        $this->flash('success', 'Sesión de impersonación finalizada');
+        $this->redirect('index.php?action=admin_users');
+    }
+
+    /**
+     * Lista de tickets (admin)
+     */
+    public function tickets(): void
+    {
+        Auth::requireAdmin();
+
+        $status = $this->get('status', '');
+        $page = (int) $this->get('page', 1);
+
+        $ticketModel = new Ticket();
+        $tickets = $ticketModel->getAllTickets($status, $page);
+        $openCount = $ticketModel->countOpen();
+
+        $this->render('admin/tickets/index', [
+            'tickets' => $tickets,
+            'status' => $status,
+            'openCount' => $openCount,
+            'flash' => $this->getFlash()
+        ]);
+    }
+
+    /**
+     * Detalle de un ticket (admin)
+     */
+    public function ticketDetail(): void
+    {
+        Auth::requireAdmin();
+
+        $id = (int) $this->get('id');
+        $ticketModel = new Ticket();
+        $ticket = $ticketModel->find($id);
+
+        if (!$ticket) {
+            $this->flash('error', 'Ticket no encontrado');
+            $this->redirect('index.php?action=admin_tickets');
+            return;
+        }
+
+        $user = $this->userModel->find($ticket['user_id']);
+
+        // Añadir vehicle_count al user para el sidebar
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT COUNT(*) FROM vehicles WHERE user_id = ?");
+        $stmt->execute([$ticket['user_id']]);
+        $user['vehicle_count'] = (int) $stmt->fetchColumn();
+
+        $this->render('admin/tickets/detail', [
+            'ticket' => $ticket,
+            'user' => $user,
+            'csrf_token' => $this->generateCsrf(),
+            'flash' => $this->getFlash()
+        ]);
+    }
+
+    /**
+     * Responder a un ticket
+     */
+    public function ticketReply(): void
+    {
+        Auth::requireAdmin();
+
+        if (!$this->isPost() || !$this->validateCsrf()) {
+            $this->redirect('index.php?action=admin_tickets');
+            return;
+        }
+
+        $id = (int) $this->post('id');
+        $ticketModel = new Ticket();
+        $ticket = $ticketModel->find($id);
+
+        if (!$ticket) {
+            $this->flash('error', 'Ticket no encontrado');
+            $this->redirect('index.php?action=admin_tickets');
+            return;
+        }
+
+        $reply = trim($this->post('reply', ''));
+        $close = $this->post('close') ? true : false;
+
+        if (empty($reply)) {
+            $this->flash('error', 'El mensaje de respuesta es obligatorio');
+            $this->redirect('index.php?action=admin_ticket_detail&id=' . $id);
+            return;
+        }
+
+        $ticketModel->reply($id, $reply, $close);
+        $this->activityModel->log('ticket_reply', "Respuesta a ticket #{$id}", 'ticket', $id);
+
+        $this->flash('success', $close ? 'Respuesta enviada y ticket cerrado' : 'Respuesta enviada');
+        $this->redirect('index.php?action=admin_ticket_detail&id=' . $id);
+    }
+
+    /**
+     * Abrir/Cerrar ticket
+     */
+    public function ticketClose(): void
+    {
+        Auth::requireAdmin();
+
+        if (!$this->isPost() || !$this->validateCsrf()) {
+            $this->redirect('index.php?action=admin_tickets');
+            return;
+        }
+
+        $id = (int) $this->post('id');
+        $ticketModel = new Ticket();
+        $ticket = $ticketModel->find($id);
+
+        if (!$ticket) {
+            $this->flash('error', 'Ticket no encontrado');
+            $this->redirect('index.php?action=admin_tickets');
+            return;
+        }
+
+        $newStatus = $ticket['status'] === 'open' ? 'closed' : 'open';
+        $ticketModel->setStatus($id, $newStatus);
+
+        $label = $newStatus === 'closed' ? 'cerrado' : 'reabierto';
+        $this->activityModel->log('ticket_status', "Ticket #{$id} {$label}", 'ticket', $id);
+
+        $this->flash('success', "Ticket {$label} correctamente");
+        $this->redirect('index.php?action=admin_ticket_detail&id=' . $id);
+    }
+
+    /**
+     * Panel de salud del sistema
+     */
+    public function health(): void
+    {
+        Auth::requireAdmin();
+
+        $db = Database::getInstance();
+        $config = require __DIR__ . '/../config/app.php';
+
+        // Versiones
+        $phpVersion = phpversion();
+        $mysqlVersion = $db->query("SELECT VERSION()")->fetchColumn();
+
+        // Disco
+        $uploadsDir = __DIR__ . '/../uploads';
+        if (!is_dir($uploadsDir)) {
+            @mkdir($uploadsDir, 0755, true);
+        }
+        $diskFree = disk_free_space($uploadsDir);
+        $diskTotal = disk_total_space($uploadsDir);
+
+        // Cron
+        $cronLastRun = $this->settingModel->get('cron_last_run', null);
+        $cronUrl = ($config['url'] ?? '') . '/index.php?action=cron_queue&token=' . ($config['cron']['token'] ?? '');
+
+        // Cola de emails
+        $queueModel = new EmailQueue();
+        $rawStats = $queueModel->getStats();
+        $queueStats = ['pending' => 0, 'sent' => 0, 'failed' => 0];
+        foreach ($rawStats as $row) {
+            $queueStats[$row['status']] = (int) $row['count'];
+        }
+
+        // Tickets abiertos
+        $ticketModel = new Ticket();
+        $openTickets = $ticketModel->countOpen();
+
+        $this->render('admin/health', [
+            'phpVersion' => $phpVersion,
+            'mysqlVersion' => $mysqlVersion,
+            'diskFree' => $diskFree,
+            'diskTotal' => $diskTotal,
+            'cronLastRun' => $cronLastRun,
+            'cronUrl' => $cronUrl,
+            'queueStats' => $queueStats,
+            'openTickets' => $openTickets
+        ]);
     }
 }

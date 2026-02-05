@@ -38,7 +38,59 @@ class VehicleController extends Controller
             );
         }
 
+        // Estadísticas globales para el resumen del dashboard
+        $globalStats = $this->vehicleModel->getGlobalStats(Auth::id());
+        $totalReminders = 0;
+        foreach ($vehicles as $v) {
+            $totalReminders += count($v['reminders']);
+        }
+
         $this->render('vehicles/index', [
+            'vehicles' => $vehicles,
+            'globalStats' => $globalStats,
+            'totalReminders' => $totalReminders,
+            'flash' => $this->getFlash()
+        ]);
+    }
+
+    /**
+     * Comparativa entre vehículos del usuario
+     */
+    public function compare(): void
+    {
+        Auth::require();
+
+        $vehicles = $this->vehicleModel->getByUser(Auth::id());
+
+        if (count($vehicles) < 2) {
+            $this->flash('info', 'Necesitas al menos 2 vehículos para comparar');
+            $this->redirect('index.php?action=dashboard');
+            return;
+        }
+
+        $db = Database::getInstance();
+
+        foreach ($vehicles as &$vehicle) {
+            $vehicle['stats'] = $this->vehicleModel->getStats($vehicle['id']);
+            $vehicle['consumption'] = $this->fuelModel->calculateConsumption($vehicle['id']);
+
+            // km recorridos desde primer registro
+            $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+                SELECT km FROM odometer_logs WHERE vehicle_id = ?
+                UNION
+                SELECT km FROM fuel_logs WHERE vehicle_id = ?
+            ) AS all_km");
+            $stmt->execute([$vehicle['current_km'], $vehicle['id'], $vehicle['id']]);
+            $vehicle['km_driven'] = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+            $vehicle['cost_per_km'] = $vehicle['km_driven'] > 0
+                ? round($vehicle['stats']['total_cost'] / $vehicle['km_driven'], 3) : 0;
+
+            $vehicle['yearly_fuel'] = $this->fuelModel->getYearlyTotal($vehicle['id']);
+            $vehicle['yearly_maint'] = $this->maintenanceModel->getYearlyTotal($vehicle['id']);
+        }
+        unset($vehicle);
+
+        $this->render('vehicles/compare', [
             'vehicles' => $vehicles,
             'flash' => $this->getFlash()
         ]);
@@ -77,6 +129,32 @@ class VehicleController extends Controller
         $yearlyFuel = $this->fuelModel->getYearlyTotal($id);
         $yearlyMaint = $this->maintenanceModel->getYearlyTotal($id);
 
+        // KM recorridos desde el primer registro y coste por km
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+            SELECT km FROM odometer_logs WHERE vehicle_id = ?
+            UNION
+            SELECT km FROM fuel_logs WHERE vehicle_id = ?
+        ) AS all_km");
+        $stmt->execute([$vehicle['current_km'], $id, $id]);
+        $kmDriven = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+        $costPerKm = $kmDriven > 0 ? round($stats['total_cost'] / $kmDriven, 3) : 0;
+
+        // Consumo por repostaje lleno (entre llenados consecutivos)
+        $lastFullFillKm = null;
+        for ($i = count($fuelLogs) - 1; $i >= 0; $i--) {
+            $fuelLogs[$i]['row_consumption'] = null;
+            if ($fuelLogs[$i]['full_tank']) {
+                if ($lastFullFillKm !== null) {
+                    $kmDiff = $fuelLogs[$i]['km'] - $lastFullFillKm;
+                    if ($kmDiff > 0) {
+                        $fuelLogs[$i]['row_consumption'] = round(($fuelLogs[$i]['liters'] / $kmDiff) * 100, 1);
+                    }
+                }
+                $lastFullFillKm = $fuelLogs[$i]['km'];
+            }
+        }
+
         $this->render('vehicles/show', [
             'vehicle' => $vehicle,
             'stats' => $stats,
@@ -89,6 +167,8 @@ class VehicleController extends Controller
             'monthlyMaint' => $monthlyMaint,
             'yearlyFuel' => $yearlyFuel,
             'yearlyMaint' => $yearlyMaint,
+            'costPerKm' => $costPerKm,
+            'kmDriven' => $kmDriven,
             'flash' => $this->getFlash(),
             'csrf_token' => $this->generateCsrf()
         ]);
@@ -164,6 +244,18 @@ class VehicleController extends Controller
         $vehicleId = $this->vehicleModel->createVehicle(Auth::id(), $data);
 
         if ($vehicleId) {
+            // Registrar km inicial en odómetro si se proporcionó
+            if ($data['current_km'] > 0) {
+                $odometerLog = new OdometerLog();
+                $odometerLog->createLog([
+                    'vehicle_id' => $vehicleId,
+                    'km' => $data['current_km'],
+                    'date' => date('Y-m-d'),
+                    'source' => 'manual',
+                    'notes' => 'Kilometraje inicial al crear el vehículo'
+                ]);
+            }
+
             $this->flash('success', 'Vehículo añadido correctamente');
             $this->redirect('index.php?action=vehicle_show&id=' . $vehicleId);
         } else {

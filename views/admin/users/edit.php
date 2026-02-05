@@ -2,9 +2,20 @@
     <div class="col-lg-8">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1><i class="bi bi-person-gear me-2"></i>Editar Usuario</h1>
-            <a href="index.php?action=admin_users" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left me-1"></i>Volver
-            </a>
+            <div class="d-flex gap-2">
+                <?php if ($user['role'] !== 'admin'): ?>
+                <form method="POST" action="index.php?action=admin_impersonate" class="d-inline">
+                    <input type="hidden" name="csrf_token" value="<?= $csrf_token ?>">
+                    <input type="hidden" name="id" value="<?= $user['id'] ?>">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="bi bi-person-lines-fill me-1"></i>Conectar como este usuario
+                    </button>
+                </form>
+                <?php endif; ?>
+                <a href="index.php?action=admin_users" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Volver
+                </a>
+            </div>
         </div>
 
         <div class="card mb-4">
@@ -104,6 +115,22 @@
                                         <span class="text-muted">Nunca</span>
                                     <?php endif; ?>
                                 </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Repostajes:</td>
+                                <td><strong><?= number_format($userStats['fuel_count'] ?? 0) ?></strong>
+                                    <span class="text-muted small">(<?= number_format($userStats['fuel_cost'] ?? 0, 2) ?> €)</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Mantenimientos:</td>
+                                <td><strong><?= number_format($userStats['maint_count'] ?? 0) ?></strong>
+                                    <span class="text-muted small">(<?= number_format($userStats['maint_cost'] ?? 0, 2) ?> €)</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="text-muted">Gasto total:</td>
+                                <td><strong class="text-success"><?= number_format(($userStats['fuel_cost'] ?? 0) + ($userStats['maint_cost'] ?? 0), 2) ?> €</strong></td>
                             </tr>
                         </table>
                     </div>

@@ -93,6 +93,20 @@
                 </div>
             </div>
 
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-headset me-2"></i>Sistema de Soporte</h5>
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="support_enabled"
+                               id="support_enabled" value="1" <?= $settings['support_enabled'] ? 'checked' : '' ?>>
+                        <label class="form-check-label" for="support_enabled">Activar Sistema de Tickets</label>
+                    </div>
+                    <div class="form-text">Si está desactivado, la opción "Soporte" se oculta para los usuarios y no podrán crear nuevos tickets</div>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-between">
                 <a href="index.php?action=admin_dashboard" class="btn btn-secondary">Cancelar</a>
                 <button type="submit" class="btn btn-primary">

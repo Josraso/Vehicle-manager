@@ -7,6 +7,9 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
+    <!-- PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0D6EFD">
 </head>
 <body class="bg-body-secondary">
     <div class="container">
@@ -26,14 +29,6 @@
                                 <i class="bi bi-check-circle me-2"></i>
                                 Si el email existe, recibirás instrucciones para restablecer tu contraseña.
                             </div>
-
-                            <?php if (isset($reset_link)): ?>
-                                <!-- Solo para desarrollo - en producción se enviaría por email -->
-                                <div class="alert alert-info small">
-                                    <strong>Modo desarrollo:</strong><br>
-                                    <a href="<?= $reset_link ?>" class="text-break"><?= $reset_link ?></a>
-                                </div>
-                            <?php endif; ?>
 
                             <div class="text-center">
                                 <a href="index.php?action=login" class="btn btn-outline-primary">

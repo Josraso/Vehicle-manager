@@ -16,6 +16,24 @@ date_default_timezone_set('Europe/Madrid');
 // Iniciar sesión
 session_start();
 
+// Verificar expiración de sesión
+if (isset($_SESSION['session_expires']) && $_SESSION['session_expires'] < time()) {
+    session_destroy();
+    session_start();
+}
+
+// Refrescar cookie si es sesión con "recuerdo mi usuario"
+if (isset($_SESSION['remember_me']) && $_SESSION['remember_me']) {
+    $_SESSION['session_expires'] = time() + (30 * 24 * 60 * 60);
+    setcookie(session_name(), session_id(), [
+        'expires' => time() + (30 * 24 * 60 * 60),
+        'path' => '/',
+        'secure' => isset($_SERVER['HTTPS']),
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+}
+
 // Cargar clases Core
 require_once __DIR__ . '/core/Database.php';
 require_once __DIR__ . '/core/Model.php';
@@ -32,6 +50,8 @@ require_once __DIR__ . '/models/OdometerLog.php';
 require_once __DIR__ . '/models/Setting.php';
 require_once __DIR__ . '/models/EmailTemplate.php';
 require_once __DIR__ . '/models/ActivityLog.php';
+require_once __DIR__ . '/models/EmailQueue.php';
+require_once __DIR__ . '/models/Ticket.php';
 
 // Cargar Core adicional
 require_once __DIR__ . '/core/Mailer.php';
@@ -46,6 +66,8 @@ require_once __DIR__ . '/controllers/ProfileController.php';
 require_once __DIR__ . '/controllers/StatsController.php';
 require_once __DIR__ . '/controllers/ExportController.php';
 require_once __DIR__ . '/controllers/AdminController.php';
+require_once __DIR__ . '/controllers/TicketController.php';
+require_once __DIR__ . '/controllers/CronController.php';
 
 // Obtener acción de la URL
 $action = $_GET['action'] ?? 'login';
@@ -61,6 +83,7 @@ $routes = [
 
     // Dashboard y Vehículos
     'dashboard' => ['VehicleController', 'index'],
+    'compare' => ['VehicleController', 'compare'],
     'vehicle_show' => ['VehicleController', 'show'],
     'vehicle_create' => ['VehicleController', 'create'],
     'vehicle_edit' => ['VehicleController', 'edit'],
@@ -108,6 +131,22 @@ $routes = [
     'admin_template_edit' => ['AdminController', 'templateEdit'],
     'admin_logs' => ['AdminController', 'logs'],
     'admin_logs_clear' => ['AdminController', 'logsClear'],
+    'admin_logs_stats' => ['AdminController', 'logStats'],
+    'admin_logs_export' => ['AdminController', 'logExport'],
+    'admin_impersonate' => ['AdminController', 'impersonate'],
+    'admin_impersonate_end' => ['AdminController', 'impersonateEnd'],
+    'admin_tickets' => ['AdminController', 'tickets'],
+    'admin_ticket_detail' => ['AdminController', 'ticketDetail'],
+    'admin_ticket_reply' => ['AdminController', 'ticketReply'],
+    'admin_ticket_close' => ['AdminController', 'ticketClose'],
+    'admin_health' => ['AdminController', 'health'],
+
+    // Tickets (usuario)
+    'tickets' => ['TicketController', 'index'],
+    'ticket_create' => ['TicketController', 'create'],
+
+    // Cron
+    'cron_queue' => ['CronController', 'processQueue'],
 ];
 
 // Ejecutar ruta

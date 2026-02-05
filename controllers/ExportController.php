@@ -252,6 +252,32 @@ class ExportController extends Controller
             $stats = $this->vehicleModel->getStats($vehicleId);
         }
 
+        // KM recorridos y coste por km
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+            SELECT km FROM odometer_logs WHERE vehicle_id = ?
+            UNION
+            SELECT km FROM fuel_logs WHERE vehicle_id = ?
+        ) AS all_km");
+        $stmt->execute([$vehicle['current_km'], $vehicleId, $vehicleId]);
+        $kmDriven = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+        $costPerKm = ($stats && $kmDriven > 0) ? round($stats['total_cost'] / $kmDriven, 3) : 0;
+
+        // Consumo por repostaje lleno
+        $lastFullFillKm = null;
+        for ($i = count($fuelLogs) - 1; $i >= 0; $i--) {
+            $fuelLogs[$i]['row_consumption'] = null;
+            if ($fuelLogs[$i]['full_tank']) {
+                if ($lastFullFillKm !== null) {
+                    $kmDiff = $fuelLogs[$i]['km'] - $lastFullFillKm;
+                    if ($kmDiff > 0) {
+                        $fuelLogs[$i]['row_consumption'] = round(($fuelLogs[$i]['liters'] / $kmDiff) * 100, 1);
+                    }
+                }
+                $lastFullFillKm = $fuelLogs[$i]['km'];
+            }
+        }
+
         // Renderizar vista de impresión
         require __DIR__ . '/../views/export/pdf.php';
         exit;

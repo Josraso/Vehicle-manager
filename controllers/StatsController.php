@@ -51,14 +51,31 @@ class StatsController extends Controller
         // Años disponibles para selector
         $availableYears = $this->getAvailableYears($vehicleId);
 
+        // KM recorridos desde primer registro y coste por km
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT COALESCE(MIN(km), ?) as initial_km FROM (
+            SELECT km FROM odometer_logs WHERE vehicle_id = ?
+            UNION
+            SELECT km FROM fuel_logs WHERE vehicle_id = ?
+        ) AS all_km");
+        $stmt->execute([$vehicle['current_km'], $vehicleId, $vehicleId]);
+        $kmDriven = $vehicle['current_km'] - (int) $stmt->fetchColumn();
+        $costPerKm = $kmDriven > 0 ? round($stats['total_cost'] / $kmDriven, 3) : 0;
+
+        // Datos tendencia de consumo (por cada llenado lleno)
+        $consumptionTrend = $this->getConsumptionTrend($vehicleId);
+
         $this->render('stats/index', [
             'vehicle' => $vehicle,
             'stats' => $stats,
             'fuelStats' => $fuelStats,
             'maintStats' => $maintStats,
             'chartData' => $chartData,
+            'consumptionTrend' => $consumptionTrend,
             'selectedYear' => $year,
-            'availableYears' => $availableYears
+            'availableYears' => $availableYears,
+            'kmDriven' => $kmDriven,
+            'costPerKm' => $costPerKm
         ]);
     }
 
@@ -126,6 +143,29 @@ class StatsController extends Controller
         }
 
         return $years;
+    }
+
+    /**
+     * Tendencia de consumo entre llenados consecutivos
+     */
+    private function getConsumptionTrend(int $vehicleId): array
+    {
+        $db = Database::getInstance();
+        $stmt = $db->prepare("SELECT date, km, liters FROM fuel_logs WHERE vehicle_id = ? AND full_tank = 1 ORDER BY km ASC, id ASC");
+        $stmt->execute([$vehicleId]);
+        $fills = $stmt->fetchAll();
+
+        $labels = [];
+        $values = [];
+        for ($i = 1; $i < count($fills); $i++) {
+            $kmDiff = $fills[$i]['km'] - $fills[$i - 1]['km'];
+            if ($kmDiff > 0) {
+                $labels[] = date('d/m/Y', strtotime($fills[$i]['date']));
+                $values[] = round(($fills[$i]['liters'] / $kmDiff) * 100, 1);
+            }
+        }
+
+        return ['labels' => $labels, 'values' => $values];
     }
 
     /**
